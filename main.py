@@ -100,13 +100,21 @@ class Concert(object):
         # 就是这一行告诉chrome去掉了webdriver痕迹，令navigator.webdriver=false，极其关键
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument('--log-level=3')
+        
 
         # 更换等待策略为不等待浏览器加载完全就进行下一步操作
+        """
         capa = DesiredCapabilities.CHROME
+        # capa = options.default_capabilities()
         # normal, eager, none
         capa["pageLoadStrategy"] = "eager"
+        """
+        # 参见 https://www.selenium.dev/documentation/webdriver/drivers/options/
+        options.page_load_strategy = 'eager'
+
         service = Service(self.driver_path)
-        self.driver = webdriver.Chrome(service=service, options=options, desired_capabilities=capa)
+
+        self.driver = webdriver.Chrome(service=service, options=options)
         # 登录到具体抢购页面
         self.login()
         self.driver.refresh()
@@ -190,6 +198,10 @@ class Concert(object):
                 print("---定位购买按钮成功---")
             except Exception as e:
                 raise Exception(f"***Error: 定位购买按钮失败***: {e}")
+            
+            if "预约抢票" in buybutton_text:
+                self.status = 2
+                raise Exception("---尚未开售，刷新等待---")
 
             if "即将开抢" in buybutton_text:
                 self.status = 2
@@ -338,15 +350,35 @@ class Concert(object):
             WebDriverWait(self.driver, 5, 0.1).until(
                 EC.presence_of_element_located(
                     (By.XPATH, '//*[@id="dmOrderSubmitBlock_DmOrderSubmitBlock"]/div[2]/div/div[2]/div[2]/div[2]')))
-            comfirmBtn = self.driver.find_element(
+            submitOrderBtn = self.driver.find_element(
                 By.XPATH, '//*[@id="dmOrderSubmitBlock_DmOrderSubmitBlock"]/div[2]/div/div[2]/div[2]/div[2]')
-            sleep(0.5)
-            comfirmBtn.click()
+            sleep(0.25)
+            submitOrderBtn.click()
+            print("---点击提交订单按钮---")
             # 判断title是不是支付宝
-            print("###正在跳转到支付宝付款界面###")
-
+            _retry_time = 0
             while True:
                 try:
+                    submitOrderBtn = self.driver.find_element(
+                        By.XPATH, '//*[@id="dmOrderSubmitBlock_DmOrderSubmitBlock"]/div[2]/div/div[2]/div[2]/div[2]')
+                    if submitOrderBtn is not None:
+                        print("---尝试重新点击提交订单按钮---")
+                        if _retry_time >= 10:
+                            print("---重新点击提交订单已超过次数---")
+                            print("尝试重新抢票")
+                            return True
+                        else:
+                            sleep(0.25)
+                            submitOrderBtn.click()
+                            _retry_time += 1
+                            print("---点击提交订单按钮---")
+                    else:
+                        break
+                except:
+                    break
+            while True:
+                try:
+                    print("###正在跳转到支付宝付款界面###")
                     WebDriverWait(self.driver, 5, 0.1).until(
                         EC.title_contains('支付宝'))
                     print("###订单提交成功###")
@@ -377,7 +409,7 @@ class Concert(object):
 
 if __name__ == '__main__':
     try:
-        with open('./config.json', 'r', encoding='utf-8') as f:
+        with open('./config_damai_hqs_bj.json', 'r', encoding='utf-8') as f:
             config = loads(f.read())
             # params: 场次优先级，票价优先级，实名者序号, 用户昵称， 购买票数， 官网网址， 目标网址, 浏览器驱动地址
         con = Concert(config['date'], config['sess'], config['price'], config['real_name'], config['nick_name'],

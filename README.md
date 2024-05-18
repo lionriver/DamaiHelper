@@ -24,7 +24,7 @@
 #### 环境准备
 - Python3
     - Selenium (4.10.0以下版本)
-- Chrome 以及配置与 Chrome 版本兼容的 ChromeDriver （当然，你也可以自行研究改用其它浏览器驱动）。
+- Chrome 以及配置与 Chrome 版本兼容的 ChromeDriver （当然，你也可以自行研究改用其它浏览器驱动）。下载地址：https://getwebdriver.com/chromedriver
 
 #### 脚本配置
 - 参照config.json中的[comment]字段。
